@@ -32,7 +32,7 @@ INFO_URL = 'http://169.254.169.254/latest/meta-data/%s'
 def get_mongo_info():
     """Get mongodb connection information (if any) from ENV."""
 
-    server = os.environ.get('AEROSTAT_SERVER', 'aerostat.urbanairship.com')
+    server = os.environ.get('AEROSTAT_SERVER', 'admin-master')
     port = os.environ.get('AEROSTAT_PORT', 27017)
     return (server, port)
 
