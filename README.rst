@@ -196,41 +196,44 @@ All of the configs are to be edited locally on a developer's computer and pushed
 
 Make sure that your ssh pub key is in ``/var/lib/git/.ssh/authorized_keys`` on dev.example.com (assuming you're using a remote origin) before trying this:
 
-    mac$ git clone ssh://git@dev.example.com:configs .
-    mac$ vim configs/<some_service>/<some_file>
-    mac$ git commmit -a
-    mac$ git push origin master
+|    mac$ git clone ssh://git@dev.example.com:configs .
+|    mac$ vim configs/<some_service>/<some_file>
+|    mac$ git commmit -a
+|    mac$ git push origin master
 
 Changes to this repo are picked up every 15 minutes by the Aerostat server in each cluster. That doesn't necessarily mean that the change goes out to the individual Aerostat clients, though. Each client has to opt-in to receiving changes. That makes it easy for you to do a canary test.
 
 The git repo saved locally on the Aerostat server is located along this path: /root/.aerostat/configs
 
-Likewise, if you're installing a new Aerostat_server instance, you'll need the git private key in order to communicate with dev and clone the repo (as well as get updates). It's located in /root/.aerostat/dev-id.
+Likewise, if you're installing a new Aerostat_server instance, you'll need the git private key in order to communicate with dev and clone the repo (as well as get updates). It's located in ``/root/.aerostat/dev-id``.
+
 Configuration Meta Data
+~~~~~~~~~~~~~~~~~~~~~~~
 
 All of the data that is supplied in the configs repo is stored in Aerostat's mongodb (in the configs database). In order to store information about where and how a service configuration should be stored, you need to include a .meta file for that configuration.
 
 e.g.:
 
-    repo_home/configs/service/service.config
-    repo_home/configs/serice/service.config.meta
+|    repo_home/configs/service/service.config
+|    repo_home/configs/serice/service.config.meta
 
 The contents of the .meta file are just YAML. The structure is as follows:
 
-    name: <name of file> # In the example above service.config
-    path: /path/to/config/config.suffix # Need the full path, including the filename here.
-    owner: username
-    group: groupname
-    mode: '0755' # Vital that you use quotes here.
+|    name: <name of file> # In the example above service.config
+|    path: /path/to/config/config.suffix # Need the full path, including the filename here.
+|    owner: username
+|    group: groupname
+|    mode: '0755' # Vital that you use quotes here.
 
 Of course, there are sane defaults. If there is no .meta file for a given configuration file, or if any of the statements are omitted, defaults are filled in. This only applies to configuration files, as Aerostat_server only looks for meta data for files that don't have a .meta extension. So, a bare config.conf.meta file won't actually have any effect on an Aerostat client.
 
 These are the default values for a bare config in the configs repo:
-    name: <config_file_name>
-    path: /etc/<config_file_name>
-    owner: root
-    group: root
-    mode: '0644'
+
+|    name: <config_file_name>
+|    path: /etc/<config_file_name>
+|    owner: root
+|    group: root
+|    mode: '0644'
 
 Client Side
 -----------
