@@ -116,18 +116,19 @@ Aerostat is designed to be run behind supervisord or some other daemon managemen
 
 From supervisord.conf for the Aerostat server itself.
 
-    [program:aerostat]
-    command=/usr/local/bin/aerostat --update --daemon --server=localhost --loglevel=DEBUG
-    user=root
-
-    [program:aerostatd]
-    command=/usr/local/bin/aerostatd
-    user=root
+|    [program:aerostat]
+|    command=/usr/local/bin/aerostat --update --daemon --server=localhost --loglevel=DEBUG
+|    user=root
+|
+|    [program:aerostatd]
+|    command=/usr/local/bin/aerostatd
+|    user=root
 
 From a client node in the cluster:
-    [program:aerostat]
-    command=/usr/local/bin/aerostat --update --daemon --loglevel=DEBUG
-    user=root
+
+|    [program:aerostat]
+|    command=/usr/local/bin/aerostat --update --daemon --loglevel=DEBUG
+|    user=root
 
 Note, there's no need to specify the server to connect to, because it defaults to 'admin-master' in the local cluster.
 
@@ -254,6 +255,7 @@ At this time, master failover is triggered from the client that you wish to prom
     node# aerostat --change-master
 
 This checks to see:
+
 * if the service is masterful
 * if the host is already master.
 * if current host is not master, then it takes the <service>-master hostname and the old master that it replaces goes through the same process as a new node (therefore filling any gaps that might exist).
@@ -297,11 +299,11 @@ Installation
 You can install ``aerostat`` either via the Python Package Index (PyPI)
 or from source.
 
-To install using ``pip``,::
+To install using ``pip``:
 
     $ pip install aerostat
 
-To install using ``easy_install``,::
+To install using ``easy_install``:
 
     $ easy_install aerostat
 
@@ -313,7 +315,7 @@ Downloading and installing from source
 Download the latest version of ``aerostat`` from
 http://pypi.python.org/pypi/aerostat/
 
-You can install it by doing the following,::
+You can install it by doing the following:
 
     $ tar xvfz aerostat-0.0.0.tar.gz
     $ cd aerostat-0.0.0
@@ -325,7 +327,7 @@ You can install it by doing the following,::
 Using the development version
 -----------------------------
 
-You can clone the repository by doing the following::
+You can clone the repository by doing the following:
 
     $ git clone git://github.com/urbanairship/aerostat.git
 
