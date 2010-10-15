@@ -207,7 +207,7 @@ The git repo saved locally on the Aerostat server is located along this path: /r
 
 Likewise, if you're installing a new Aerostat_server instance, you'll need the git private key in order to communicate with dev and clone the repo (as well as get updates). It's located in ``/root/.aerostat/dev-id``.
 
-Configuration Meta Data
+Configuration Metadata
 ~~~~~~~~~~~~~~~~~~~~~~~
 
 All of the data that is supplied in the configs repo is stored in Aerostat's MongoDB (in the configs database). In order to store information about where and how a service configuration should be stored, you need to include a .meta file for that configuration.
