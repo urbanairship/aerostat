@@ -11,15 +11,15 @@
 .. _Aerostat-synopsis:
 
 Aerostat is an open source client/server system for automatically naming
-clound nodes based on the service that they run primarily. This is a key piece
+cloud nodes based on the service that they run primarily. This is a key piece
 of automating deployment of new nodes. 
 
-It's designed with EC2 in mind, however, it should be extendable to any cloud
-provider. It should noted that Aerostat is still under active development. While
+It's designed with Amazon EC2 in mind, however, it should be extendable to any cloud
+provider. It should be noted that Aerostat is still under active development. While
 it is in production at urbanairship.com, there are a number of scenarios in which
 it may not work with other infrastructure. Consider this beta software.
 
-The distribution of node identifcation (hostnames, aliases) happens by using 
+The distribution of node identification (hostnames, aliases) happens by using 
 /etc/hosts. So this software is designed for Unix systems which rely on that file
 during routine DNS resolution.
 
@@ -105,8 +105,8 @@ There are a few expectations that Aerostat has about how to get around in your i
 For the Aerostat Server
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-* mogodb running on a node which is knowin within the Aerostat system as ``admin-master``, or whatever you wish to override with (using --server).
-* authentication information for AWS EC2 is to be located in a file, by default it looks in ``/root/installer/.ec2``. The expectation is that the file is formatted into three lines, consisting of ``key_id``, ``key_secret``, and ``keypair_name`` (optional). Eventually, this will be included as a proper config file.
+* MongoDB running on a node which is known within the Aerostat system as ``admin-master``, or with whatever you wish to override (using --server).
+* Authentication information for AWS EC2 is located in a file, which by default is in ``/root/installer/.ec2``. The expectation is that the file is formatted into three lines, consisting of ``key_id``, ``key_secret``, and ``keypair_name`` (optional). Eventually, this will be included as a proper config file.
 * If you're planning on using the git repo to Aerostat configuration management, make sure that the directory path for Aerostat's local repo exists, that the credentials for accessing the origin master repository work and that the URL is accurate. 
 
 With Supervisord
@@ -166,7 +166,7 @@ or
 
     # aerosat --server=localhost --dryrun --offline --register
 
-Of course, this requires that you have mongodb, installed, running and that you don't have authorization restrictions. To enable authorization restrictions, you'll want to define that yourself in a subclasses Aerostat module where db_connect is overridden.
+Of course, this requires that you have MongoDB, installed, running and that you don't have authorization restrictions. To enable authorization restrictions, you'll want to define that yourself in a subclasses Aerostat module where db_connect is overridden.
 
 As a Library
 ------------
@@ -190,18 +190,18 @@ Documentation
 Server Side
 -----------
 
-In ``aerostat.aerosat_server.py`` there are a group of GLOBAL variables which define the paths to Aerostat-server's local copy of the git repo, the certificate it uses for authentication, and the remote gir url to pull from, as well as the update frequency. (Making this a configuration file is on my TODO list).
+In ``aerostat.aerosat_server.py`` there are a group of GLOBAL variables which define the paths to Aerostat-server's local copy of the git repo, the certificate it uses for authentication, and the remote git url to pull from, as well as the update frequency. (Making this a configuration file is on my TODO list).
 
-All of the configs are to be edited locally on a developer's computer and pushed to origin (whatever your repo server might be) by default. Something like this would work:
+All of the configs are to be edited locally on a developer's computer and pushed to origin (whatever your git repo server might be) by default. Something like this would work:
 
 Make sure that your ssh pub key is in ``/var/lib/git/.ssh/authorized_keys`` on dev.example.com (assuming you're using a remote origin) before trying this:
 
-|    mac$ git clone ssh://git@dev.example.com:configs .
-|    mac$ vim configs/<some_service>/<some_file>
-|    mac$ git commmit -a
-|    mac$ git push origin master
+|    $ git clone ssh://git@dev.example.com:configs .
+|    $ vim configs/<some_service>/<some_file>
+|    $ git commmit -a
+|    $ git push origin master
 
-Changes to this repo are picked up every 15 minutes by the Aerostat server in each cluster. That doesn't necessarily mean that the change goes out to the individual Aerostat clients, though. Each client has to opt-in to receiving changes. That makes it easy for you to do a canary test.
+Changes to this repo are picked up every 15 minutes by the Aerostat server in each cluster. That doesn't necessarily mean that the change goes out to the individual Aerostat clients, though. Each client has to opt-in to receive changes. That makes it easy for you to do a canary test.
 
 The git repo saved locally on the Aerostat server is located along this path: /root/.aerostat/configs
 
@@ -210,7 +210,7 @@ Likewise, if you're installing a new Aerostat_server instance, you'll need the g
 Configuration Meta Data
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-All of the data that is supplied in the configs repo is stored in Aerostat's mongodb (in the configs database). In order to store information about where and how a service configuration should be stored, you need to include a .meta file for that configuration.
+All of the data that is supplied in the configs repo is stored in Aerostat's MongoDB (in the configs database). In order to store information about where and how a service configuration should be stored, you need to include a .meta file for that configuration.
 
 e.g.:
 
@@ -225,7 +225,7 @@ The contents of the .meta file are just YAML. The structure is as follows:
 |    group: groupname
 |    mode: '0755' # Vital that you use quotes here.
 
-Of course, there are sane defaults. If there is no .meta file for a given configuration file, or if any of the statements are omitted, defaults are filled in. This only applies to configuration files, as Aerostat_server only looks for meta data for files that don't have a .meta extension. So, a bare config.conf.meta file won't actually have any effect on an Aerostat client.
+Of course, there are sane defaults. If there is no .meta file for a given configuration file, or if any of the statements are omitted, defaults are filled in. This only applies to configuration files, as Aerostat_server only looks for metadata for files that don't have a .meta extension. So, a bare config.conf.meta file won't actually have any affect on an Aerostat client.
 
 These are the default values for a bare config in the configs repo:
 
@@ -241,7 +241,7 @@ A couple of useful options for testing are –dryrun, and –offline supplied to
 
 * ``-–dryrun`` means that it will go through the process of either registering, changing master, or updating the /etc/hosts, but won't actually do so. Instead it just logs what it would have done.
 * ``-–offline`` means that it won't try to connect to AWS. Instead it just fakes instance_id information (using the string 'test-instance').
-* ``-–server`` allows you to specify which Aerostat (or mongodb) server to connect to. Set this to localhost if you want to do testing locally.
+* ``-–server`` allows you to specify which Aerostat (or MongoDB) server to connect to. Set this to localhost if you want to do testing locally.
 
 Registrar
 ~~~~~~~~~
@@ -268,7 +268,7 @@ Note: because we don't have direct access to both systems whose names are changi
 Updater
 ~~~~~~~
 
-This is probably the most simple portion of Aerostat. Basically, it just queries the Aerostat server, constructs its dataset of ip to hostname resolution (and aliases) and then writes that to a temporary file. If all goes well there, then it moves it over the existing ``/etc/hosts`` file.
+This is probably the simplest portion of Aerostat. Basically, it just queries the Aerostat server, constructs its dataset of IP to hostname resolution (and aliases) and then writes that to a temporary file. If all goes well there, then it moves it over the existing ``/etc/hosts`` file.
 
 It gets complicated when services require a legacy updating system. In that case, the ``-–legacy-updater`` option allows you to specify a binary that it expects to write out to a file called ``/etc/hosts.legacy``. Then Aerostat will concatenate all of that legacy data, plus the Aerostat data into ``/etc/hosts.tmp``. If that works out, then it overwrites ``/etc/hosts`` like normal.
 
