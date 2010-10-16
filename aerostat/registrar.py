@@ -28,9 +28,12 @@ class Registrar(object):
         Only service_name field is required.
         User_data is set in the installer config.
         """
-        server_info = open('/etc/aerostat_info', 'r')
+        aerostat_info_file = os.environ.get('AEROSTAT_INFO','/etc/aerostat_info')
+        logging.debug('get_types(): opening type info from %s.' % aerostat_info_file)
+        server_info = open(aerostat_info_file, 'r')
+        logging.debug('get_types(): reading type info from %s.' % aerostat_info_file)
         types = server_info.read().strip().split()
-        logging.debug('recovered type info from /etc/aerostat_info.')
+        logging.debug('recovered type info from %s.' % aerostat_info_file)
         server_info.close()
 
         return types
