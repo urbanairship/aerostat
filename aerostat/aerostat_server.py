@@ -12,6 +12,7 @@ supervisord.
 """
 import os
 import datetime
+import logging
 import time
 
 import aerostat
@@ -28,15 +29,16 @@ CONFIG_UPDATE_FREQ = 15
 
 class Aerostatd(object):
 
-    def __init__(self):
-        self.mongo_conn = aerostat.db_connect('localhost', 27017)
-        self.aerostat_db= self.mongo_conn.aerostat
-        self.config_db = self.mongo_conn.configs
-        self.aws_conn = self.aws_connect()
+    def __init__(self, offline=False):
+        if not offline:
+            self.mongo_conn = aerostat.db_connect('localhost', 27017)
+            self.aerostat_db= self.mongo_conn.aerostat
+            self.config_db = self.mongo_conn.configs
+            self.aws_conn = self.aws_connect()
         self.repo_path = '/root/.aerostat/'
         self.config_repo_path = self.repo_path + 'configs/'
         self.git_cert = '/root/.aerostat/dev-id'
-        self.remote_repo_url = 'git@dev:configs' # This is using as ssh alias 
+        self.remote_repo_url = 'git@dev:configs' # This is using as ssh alias
         self.config_update_freq = 10
         self.read_aerostatd_conf()
 
@@ -48,18 +50,21 @@ class Aerostatd(object):
         Returns:
             Bool, if the conf file is read from or not.
         """
-        conf_file = os.environ.get('AEROSTATD_CONF', '/etc/aerostatd.conf')
+        conf_path = os.environ.get('AEROSTATD_CONF', '/etc/aerostatd.conf')
         conf = None
-        if not os.path.exists(conf_file):
-            aerostat.logging.warn('No aerostatd.conf to read, using defaults.')
+        if not os.path.exists(conf_path):
+            logging.warn('No aerostatd.conf to read, using defaults.')
             return False
 
         try:
-            conf = yaml.load(self.conf_file.read())
+            conf_file = open(conf_path, 'r')
+            conf = yaml.load(conf_file.read())
+            conf_file.close()
         except IOError, e:
-            aerostat.logger.warning('Error attempting to read config: %s' % e)
+            print('Error attempting to read config: %s' % e)
+            return False
 
-        if self.conf:
+        if conf:
             if 'remote_repo_url' in conf:
                 self.remote_repo_url = conf['remote_repo_url']
             if 'git_cert' in conf:
@@ -161,12 +166,10 @@ class Aerostatd(object):
         conf_name = sub_repo_path.split('/')[-1]
         if os.path.exists(self.config_repo_path + sub_repo_path):
             if os.path.exists(self.config_repo_path + meta_file_pattern):
-                meta_file = open(CONFIG_REPO_PATH + meta_file_pattern)
+                meta_file = open(self.config_repo_path + meta_file_pattern)
                 meta_data = yaml.load(meta_file.read())
                 meta_file.close()
 
-            if not meta_data:
-                meta_data = {'path': '', 'owner': '', 'group': '', 'mode': ''}
             if 'path' not in meta_data:
                 meta_data['path'] = '/etc/%s' % (conf_name,)
             if 'owner' not in meta_data:

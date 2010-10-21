@@ -1,3 +1,9 @@
 *.pyc
 dist/
 aerostat.egg-info/
+.Python
+bin/
+build/
+include/
+lib/
+

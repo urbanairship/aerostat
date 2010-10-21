@@ -8,19 +8,36 @@ __author__ = 'Gavin McQuillan (gavin@urbanairship.com)'
 import os
 import StringIO
 import sys
-import urllib2
 import unittest
 
-import boto
-import git
 import mox
-import pymongo
+import yaml
 
-from aerostat import aerostat
 from aerostat import aerostat_server
-from boto.ec2.connection import EC2Connection
 
 class AerostatServerTest(mox.MoxTestBase):
+
+    def test_read_aerostatd_conf(self):
+        """test read_aerostatd_conf function."""
+        default_conf_path = '/etc/aerostatd.conf'
+        fake_contents = "'remote_repo_url': 'testserver:configs'"
+        fake_yaml_output = {'remote_repo_url': 'testserver:configs'}
+        fake_conf_file = StringIO.StringIO(fake_contents)
+        self.mox.StubOutWithMock(os.path, 'exists')
+        os.path.exists(default_conf_path).AndReturn(False)
+        os.path.exists(default_conf_path).AndReturn(False)
+        os.path.exists(default_conf_path).AndReturn(True)
+        self.mox.StubOutWithMock(sys.modules['__builtin__'], 'open')
+        sys.modules['__builtin__'].open(default_conf_path, 'r').AndReturn(
+                fake_conf_file)
+        self.mox.StubOutWithMock(yaml, 'load')
+        yaml.load(fake_contents).AndReturn(fake_yaml_output)
+
+        self.mox.ReplayAll()
+
+        fake_aerostatd = aerostat_server.Aerostatd(offline=True)
+        self.assertFalse(fake_aerostatd.read_aerostatd_conf())
+        self.assertTrue(fake_aerostatd.read_aerostatd_conf())
 
     def test_read_creds(self):
         """Test _read_creds function."""
@@ -30,25 +47,32 @@ class AerostatServerTest(mox.MoxTestBase):
         sys.modules['__builtin__'].open('/root/installer/.ec2', 'r').AndReturn(
                 fake_creds_file)
 
+        fake_aerostatd = aerostat_server.Aerostatd(offline=True)
+
         self.mox.ReplayAll()
 
-        self.assertEqual(aerostat_server._read_creds(), expected_results)
+        self.assertEqual(fake_aerostatd._read_creds(), expected_results)
 
     def test_get_mongo_instance_ids(self):
-
+        """Test get_mongo_instance_ids function."""
         expected_output = ['i-d23lk3kjl']
-
         fake_row = {'hostname': 'mongodb-master', 'ip': '12.123.234.3',
                 'server_type': 'mongodb', 'instance_id': 'i-d23lk3kjl'}
 
+        fake_conn = self.mox.CreateMockAnything()
         fake_db = self.mox.CreateMockAnything()
+        fake_conn.aerostat.AndReturn(fake_db)
         fake_db.servers = self.mox.CreateMockAnything()
 
         fake_db.servers.find().AndReturn([fake_row])
 
+        fake_aerostatd = aerostat_server.Aerostatd(offline=True)
+        fake_aerostatd.mongo_conn = fake_conn
+        fake_aerostatd.aerostat_db = fake_db
+
         self.mox.ReplayAll()
 
-        test_output = aerostat_server.get_mongo_instance_ids(fake_db)
+        test_output = fake_aerostatd.get_mongo_instance_ids()
         self.assertEqual(test_output, expected_output)
 
     def test_get_aws_instance_ids(self):
@@ -70,9 +94,12 @@ class AerostatServerTest(mox.MoxTestBase):
         fake_connection.get_all_instances().AndReturn(
                 [fake_req1, fake_req2])
 
+        fake_aerostatd = aerostat_server.Aerostatd(offline=True)
+        fake_aerostatd.aws_conn = fake_connection
+
         self.mox.ReplayAll()
 
-        test_output = aerostat_server.get_aws_instance_ids(fake_connection)
+        test_output = fake_aerostatd.get_aws_instance_ids()
 
         self.assertEqual(test_output, expected_output)
 
@@ -83,16 +110,20 @@ class AerostatServerTest(mox.MoxTestBase):
         fake_mongo_ids = ['test1', 'test2', 'test3']
         fake_aws_ids = ['test2', 'test3']
 
+        fake_aerostatd = aerostat_server.Aerostatd(offline=True)
+
         self.mox.ReplayAll()
 
-        test_output = aerostat_server.get_mongo_aws_diff(
+        test_output = fake_aerostatd.get_mongo_aws_diff(
                 fake_mongo_ids, fake_aws_ids)
 
         self.assertEqual(test_output, expected_output)
 
     def test_update_mongo(self):
 
+        fake_conn = self.mox.CreateMockAnything()
         fake_db = self.mox.CreateMockAnything()
+        fake_conn.aerostat = fake_db
         fake_db.servers = self.mox.CreateMockAnything()
         fake_ids = ['i-test1', 'i-test2']
 
@@ -103,10 +134,14 @@ class AerostatServerTest(mox.MoxTestBase):
                 {'instance_id': 'i-test2'},
                         {'$set': {'instance_id': '', 'ip': ''}}).AndReturn(None)
 
+        fake_aerostatd = aerostat_server.Aerostatd(offline=True)
+        fake_aerostatd.mongo_conn = fake_conn
+        fake_aerostatd.aerostat_db = fake_db
+
         self.mox.ReplayAll()
 
-        self.assertEqual(aerostat_server.update_mongo(
-                fake_db, fake_ids), None)
+        self.assertEqual(fake_aerostatd.update_mongo(
+                fake_ids), None)
 
     def test_update_or_clone_repo(self):
         """Test update_or_clone_repo function: update."""
@@ -121,6 +156,7 @@ class AerostatServerTest(mox.MoxTestBase):
         fake_git = self.mox.CreateMockAnything()
 
         self.mox.StubOutWithMock(os.path, 'exists')
+        os.path.exists('/etc/aerostatd.conf').AndReturn(False)
         os.path.exists(fake_repo_path).AndReturn(True)
 
         fake_git_module.Repo(fake_repo_path).AndReturn(fake_repo)
@@ -130,7 +166,11 @@ class AerostatServerTest(mox.MoxTestBase):
 
         self.mox.ReplayAll()
 
-        test_repo1 = aerostat_server.update_or_clone_repo(fake_repo_path, fake_repo_url)
+        fake_aerostatd = aerostat_server.Aerostatd(offline=True)
+        fake_aerostatd.repo_path = fake_repo_path
+        fake_aerostatd.remote_repo_url = fake_repo_url
+
+        test_repo1 = fake_aerostatd.update_or_clone_repo()
         self.assertNotEqual(test_repo1, None)
 
     def test_update_or_clone_repo_new(self):
@@ -141,11 +181,10 @@ class AerostatServerTest(mox.MoxTestBase):
 
         fake_git_module = self.mox.CreateMockAnything()
         aerostat_server.git = fake_git_module
-
         fake_repo = self.mox.CreateMockAnything()
-        fake_git = self.mox.CreateMockAnything()
 
         self.mox.StubOutWithMock(os.path, 'exists')
+        os.path.exists('/etc/aerostatd.conf').AndReturn(False)
         os.path.exists(fake_repo_path).AndReturn(False)
         fake_git_module.Repo = fake_repo
 
@@ -153,7 +192,12 @@ class AerostatServerTest(mox.MoxTestBase):
 
         self.mox.ReplayAll()
 
-        test_repo1 = aerostat_server.update_or_clone_repo(fake_repo_path, fake_repo_url)
+        fake_aerostatd = aerostat_server.Aerostatd(offline=True)
+        fake_aerostatd.repo_path = fake_repo_path
+        fake_aerostatd.remote_repo_url = fake_repo_url
+
+
+        test_repo1 = fake_aerostatd.update_or_clone_repo()
         self.assertNotEqual(test_repo1, None)
 
     def test_get_config_meta_data(self):
@@ -165,13 +209,15 @@ class AerostatServerTest(mox.MoxTestBase):
                 'group': 'fake_group',
                 'mode': '0777'}
 
-        aerostat_server.CONFIG_REPO_PATH = fake_global = '/path/to/repo/'
-        fake_repo_path = 'example_service/config.conf'
-        fake_meta_path = fake_global + fake_repo_path + '.meta'
+        fake_aerostatd = aerostat_server.Aerostatd(offline=True)
+        fake_aerostatd.repo_path = fake_global = '/path/to/repo/'
+        fake_aerostatd.config_repo_path = '/path/to/repo/'
+        fake_sub_path = 'example_service/config.conf'
+        fake_meta_path = fake_global + fake_sub_path + '.meta'
 
 
         self.mox.StubOutWithMock(os.path, 'exists')
-        os.path.exists(fake_global + fake_repo_path).AndReturn(True)
+        os.path.exists(fake_global + fake_sub_path).AndReturn(True)
         os.path.exists(fake_meta_path).AndReturn(True)
 
         fake_meta_file = StringIO.StringIO(
@@ -184,7 +230,7 @@ class AerostatServerTest(mox.MoxTestBase):
 
         self.mox.ReplayAll()
 
-        test_meta_data = aerostat_server.get_config_meta_data(fake_repo_path)
+        test_meta_data = fake_aerostatd.get_config_meta_data(fake_sub_path)
         self.assertEqual(test_meta_data, expected_meta_data)
 
     def test_get_config_meta_data_no_file(self):
@@ -196,24 +242,28 @@ class AerostatServerTest(mox.MoxTestBase):
                 'group': 'root',
                 'mode': '0644'}
 
-        aerostat_server.CONFIG_REPO_PATH = fake_global = '/path/to/repo/'
-        fake_repo_path = 'example_service/config.conf'
-        fake_meta_path = fake_global + fake_repo_path + '.meta'
-
+        fake_global = '/path/to/repo/configs/'
+        fake_sub_path = 'example_service/config.conf'
+        fake_config_path = fake_global + fake_sub_path
+        fake_meta_path = fake_config_path + '.meta'
 
         self.mox.StubOutWithMock(os.path, 'exists')
-        os.path.exists(fake_global + fake_repo_path).AndReturn(True)
+        os.path.exists('/etc/aerostatd.conf').AndReturn(False)
+        os.path.exists(fake_config_path).AndReturn(True)
         # Now suppose .meta file doesn't exist.
         os.path.exists(fake_meta_path).AndReturn(False)
         # Now suppose there's no config at all.
-        os.path.exists(fake_global + fake_repo_path).AndReturn(None)
+        os.path.exists(fake_config_path).AndReturn(False)
 
         self.mox.ReplayAll()
 
-        test_meta_data = aerostat_server.get_config_meta_data(fake_repo_path)
+        fake_aerostatd = aerostat_server.Aerostatd(offline=True)
+        fake_aerostatd.config_repo_path = fake_global
+        test_meta_data = fake_aerostatd.get_config_meta_data(fake_sub_path)
+
         self.assertEqual(test_meta_data, expected_meta_data)
         self.assertEqual({},
-                aerostat_server.get_config_meta_data(fake_repo_path))
+                fake_aerostatd.get_config_meta_data(fake_sub_path))
 
     def test_save_mongo_configs(self):
         """Test save_mongo_configs function."""
@@ -243,15 +293,20 @@ class AerostatServerTest(mox.MoxTestBase):
                     'mode': '0664'}}).AndReturn(12)
         fake_db.test = fake_col
 
+        fake_aerostatd = aerostat_server.Aerostatd(offline=True)
+        fake_aerostatd.conf_db = fake_db
+
         self.mox.ReplayAll()
 
-        self.assertEqual(12, aerostat_server.save_mongo_configs(
-            fake_db, 'test', fake_config_name, '', fake_meta_data))
+        self.assertEqual(12, fake_aerostatd.save_mongo_configs(
+            'test', fake_config_name, '', fake_meta_data))
 
     def test_parse_config_data(self):
         """Test parse_config_data function."""
 
-        aerostat_server.CONFIG_REPO_PATH = fake_global = '/path/to/repo/'
+        fake_aerostatd = aerostat_server.Aerostatd(offline=True)
+        fake_aerostatd.config_repo_path = fake_repo = '/path/to/repo'
+        fake_aerostatd.repo_path = '/path/to/repo'
         fake_config = 'test/config.conf'
         fake_file_contents = 'config data!'
         fake_meta_data = {
@@ -259,12 +314,12 @@ class AerostatServerTest(mox.MoxTestBase):
                 'owner': 'somebody',
                 'group': 'somepeople',
                 'mode': '0664'}
-        self.mox.StubOutWithMock(aerostat_server, 'get_config_meta_data')
-        aerostat_server.get_config_meta_data(fake_config).AndReturn(fake_meta_data)
+        self.mox.StubOutWithMock(fake_aerostatd, 'get_config_meta_data')
+        fake_aerostatd.get_config_meta_data(fake_config).AndReturn(fake_meta_data)
         fake_file = StringIO.StringIO(fake_file_contents)
 
         self.mox.StubOutWithMock(sys.modules['__builtin__'], 'open')
-        sys.modules['__builtin__'].open(fake_global + fake_config).AndReturn(
+        sys.modules['__builtin__'].open(fake_repo + fake_config).AndReturn(
                 fake_file)
 
         expected_output = (
@@ -272,15 +327,14 @@ class AerostatServerTest(mox.MoxTestBase):
 
         self.mox.ReplayAll()
 
-        self.assertEqual(aerostat_server.parse_config_data(fake_config),
+        self.assertEqual(fake_aerostatd.parse_config_data(fake_config),
                expected_output)
 
     def test_do_config_update(self):
         """Test do_config_update function."""
-
-        aerostat_server.CONFIG_REPO_PATH = fake_global = '/path/to/repo/'
+        fake_aerostatd = aerostat_server.Aerostatd(offline=True)
+        fake_aerostatd.conf_repo_path = '/path/to/repo/'
         fake_db = self.mox.CreateMockAnything()
-        fake_repo_path = 'test/config.conf'
         fake_repo_url = 'ssh://server/repo'
         fake_repo = self.mox.CreateMockAnything()
         fake_repo_files = 'test/config.conf'
@@ -295,22 +349,23 @@ class AerostatServerTest(mox.MoxTestBase):
         fake_col_name = 'test'
         fake_file_name = 'config.conf'
 
-        self.mox.StubOutWithMock(aerostat_server, 'update_or_clone_repo')
-        aerostat_server.update_or_clone_repo(
-                fake_global, fake_repo_url).AndReturn(fake_repo)
+        fake_aerostatd.remote_repo_url = fake_repo_url
+        fake_aerostatd.config_db = fake_db
 
-        self.mox.StubOutWithMock(aerostat_server, 'parse_config_data')
-        aerostat_server.parse_config_data('test/config.conf').AndReturn((
+        self.mox.StubOutWithMock(fake_aerostatd, 'update_or_clone_repo')
+        fake_aerostatd.update_or_clone_repo().AndReturn(fake_repo)
+
+        self.mox.StubOutWithMock(fake_aerostatd, 'parse_config_data')
+        fake_aerostatd.parse_config_data('test/config.conf').AndReturn((
                 fake_col_name, fake_file_name, '', fake_meta_data))
 
-        self.mox.StubOutWithMock(aerostat_server, 'save_mongo_configs')
-        aerostat_server.save_mongo_configs(fake_db, fake_col_name,
+        self.mox.StubOutWithMock(fake_aerostatd, 'save_mongo_configs')
+        fake_aerostatd.save_mongo_configs(fake_col_name,
                 fake_file_name, '', fake_meta_data).AndReturn(12)
 
         self.mox.ReplayAll()
 
-        self.assertTrue(aerostat_server.do_config_update(
-            fake_db, fake_global, fake_repo_url))
+        self.assertTrue(fake_aerostatd.do_config_update())
 
 
 if __name__ == '__main__':
