@@ -26,7 +26,7 @@ GIT_CERT = '/root/.aerostat/dev-id'
 REPO_URL = 'git@dev:configs'
 CONFIG_UPDATE_FREQ = 15
 
-class Aerostatd(Object):
+class Aerostatd(object):
 
     def __init__(self):
         self.mongo_conn = aerostat.db_connect('localhost', 27017)
@@ -91,7 +91,7 @@ class Aerostatd(Object):
     def aws_connect(self):
         """Return connection cursor from EC2."""
 
-        key_id, key_sec, keypair_name = _read_creds()
+        key_id, key_sec, keypair_name = self._read_creds()
         return EC2Connection(key_id, key_sec)
 
     def get_mongo_instance_ids(self):
@@ -230,7 +230,7 @@ class Aerostatd(Object):
     def do_config_update(self):
         """Do the configuration update."""
 
-        repo = update_or_clone_repo()
+        repo = self.update_or_clone_repo()
         repo_configs = repo.git.ls_files().split('\n')
 
         for config in repo_configs:
@@ -255,7 +255,7 @@ def main():
             aerostatd.do_config_update()
             run_time = datetime.timedelta(minutes=15) + now
         if now > run_time:
-            aerostad.do_config_update()
+            aerostat.do_config_update()
             run_time = datetime.timedelta(
                     minutes=aerostatd.config_update_freq) + now # reset
 
