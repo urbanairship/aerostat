@@ -20,6 +20,7 @@ import git
 import yaml
 
 from boto.ec2.connection import EC2Connection
+from optparse import OptionParser
 
 REPO_PATH = '/root/.aerostat/'
 CONFIG_REPO_PATH = REPO_PATH + 'configs/'
@@ -248,6 +249,9 @@ class Aerostatd(object):
 
 def main():
     """Main."""
+    parser.add_option(
+            '--offline', action='store_true', dest='offline', default=False,
+            help='Run in offline mode (No AWS).')
 
     now = None
     run_time = None
@@ -263,9 +267,10 @@ def main():
                     minutes=aerostatd.config_update_freq) + now # reset
 
         mongo_ids = aerostatd.get_mongo_instance_ids()
-        aws_ids = aerostatd.get_aws_instance_ids()
-        diffs = aerostatd.get_mongo_aws_diff(mongo_ids, aws_ids)
-        aerostatd.update_mongo(diffs)
+        if not options.offline:
+            aws_ids = aerostatd.get_aws_instance_ids()
+            diffs = aerostatd.get_mongo_aws_diff(mongo_ids, aws_ids)
+            aerostatd.update_mongo(diffs)
         time.sleep(60)
 
 
