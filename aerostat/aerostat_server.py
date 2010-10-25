@@ -22,20 +22,17 @@ import yaml
 from boto.ec2.connection import EC2Connection
 from optparse import OptionParser
 
-REPO_PATH = '/root/.aerostat/'
-CONFIG_REPO_PATH = REPO_PATH + 'configs/'
-GIT_CERT = '/root/.aerostat/dev-id'
-REPO_URL = 'git@dev:configs'
-CONFIG_UPDATE_FREQ = 15
 
 class Aerostatd(object):
 
     def __init__(self, offline=False):
-        if not offline:
-            self.mongo_conn = aerostat.db_connect('localhost', 27017)
-            self.aerostat_db= self.mongo_conn.aerostat
-            self.config_db = self.mongo_conn.configs
+        self.offline = offline
+        if not self.offline:
             self.aws_conn = self.aws_connect()
+
+        self.mongo_conn = aerostat.db_connect('localhost', 27017)
+        self.aerostat_db= self.mongo_conn.aerostat
+        self.config_db = self.mongo_conn.configs
         self.repo_path = '/root/.aerostat/'
         self.config_repo_path = self.repo_path + 'configs/'
         self.git_cert = '/root/.aerostat/dev-id'
@@ -231,8 +228,10 @@ class Aerostatd(object):
 
         return (col_name, file_name, file_contents, meta_data)
 
-    def do_config_update(self):
+    def do_config_update(self): 
         """Do the configuration update."""
+        if self.offline:
+            return False
 
         repo = self.update_or_clone_repo()
         repo_configs = repo.git.ls_files().split('\n')
@@ -249,13 +248,18 @@ class Aerostatd(object):
 
 def main():
     """Main."""
+
+    usage = 'usage: %prog [options] arg1 arg2'
+    parser = OptionParser(usage=usage)
     parser.add_option(
             '--offline', action='store_true', dest='offline', default=False,
             help='Run in offline mode (No AWS).')
 
+    (options, args) = parser.parse_args()
+
     now = None
     run_time = None
-    aerostatd = Aerostatd()
+    aerostatd = Aerostatd(options.offline)
     while 1:
         now = datetime.datetime.now()
         if not run_time:
