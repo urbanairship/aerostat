@@ -69,6 +69,7 @@ class Aerostatd(object):
                 self.git_cert = conf['git_cert']
             if 'repo_path' in conf:
                 self.repo_path = conf['repo_path']
+                self.config_repo_path = conf['repo_path'] + '/configs'
             if 'config_update_freq' in conf:
                 self.config_update_feq = conf['config_update_freq']
 
@@ -140,10 +141,11 @@ class Aerostatd(object):
             git.Repo object
         """
         repo = None
-        if not os.path.exists(self.repo_path):
-            repo = git.Repo.clone_from(self.remote_repo_url, self.repo_path)
+        if not os.path.exists(self.config_repo_path):
+            repo = git.Repo.clone_from(self.remote_repo_url,
+                    self.config_repo_path)
         else:
-            repo = git.Repo(self.repo_path)
+            repo = git.Repo(self.config_repo_path)
             repo.git.reset('--hard')
             repo.git.pull()
 
@@ -165,7 +167,9 @@ class Aerostatd(object):
         if os.path.exists(self.config_repo_path + sub_repo_path):
             if os.path.exists(self.config_repo_path + meta_file_pattern):
                 meta_file = open(self.config_repo_path + meta_file_pattern)
-                meta_data = yaml.load(meta_file.read())
+                data = yaml.load(meta_file.read())
+                if data: # In case the .meta file exists, but is empty
+                    meta_data = data
                 meta_file.close()
 
             if 'path' not in meta_data:
@@ -182,7 +186,7 @@ class Aerostatd(object):
     def save_mongo_configs(self, col_name, file_name, file_contents, meta_data):
         """Save pre-parsed git repo data into mongo."""
 
-        col = getattr(self.conf_db, col_name, None)
+        col = getattr(self.config_db, col_name, None)
         doc = col.find_one({'name': file_name})
         id = None
         if doc: # Our config already exists, just update its data.
