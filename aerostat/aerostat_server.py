@@ -214,21 +214,21 @@ class Aerostatd(object):
         if (len(config.split('/')) < 2):
             # This is a malformed configuration, just pass.
             col_name = file_name = file_contents = meta_data = None
-
-        col_name, file_name = config.split('/')
-        if file_name.split('.')[-1] == 'meta':
-            # We don't enter .meta files directly into mongo.
-            col_name = file_name = file_contents = meta_data = None
         else:
-            meta_data = self.get_config_meta_data(config)
-            file_contents = ''
-            file = open(self.config_repo_path + config)
-            file_contents = file.read()
-            file.close()
+            col_name, file_name = config.split('/')
+            if file_name.split('.')[-1] == 'meta':
+                # We don't enter .meta files directly into mongo.
+                col_name = file_name = file_contents = meta_data = None
+            else:
+                meta_data = self.get_config_meta_data(config)
+                file_contents = ''
+                file = open(self.config_repo_path + config)
+                file_contents = file.read()
+                file.close()
 
         return (col_name, file_name, file_contents, meta_data)
 
-    def do_config_update(self): 
+    def do_config_update(self):
         """Do the configuration update."""
         if self.offline:
             return False

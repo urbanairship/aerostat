@@ -103,7 +103,7 @@ class Registrar(object):
 
         Args:
             db: a pymongo.Connection.db instance.
-            service: str, the name retrieved from /tmp/ua_server_info.
+            service: str, the name retrieved from /etc/aerostat_info.
             service_type: str, kind of service hierarchy, masterful or iterative.
             instance_id: str, name of instance, to check for dups.
         Returns:
