@@ -270,7 +270,7 @@ def main():
             aerostatd.do_config_update()
             run_time = datetime.timedelta(minutes=15) + now
         if now > run_time:
-            aerostat.do_config_update()
+            aerostatd.do_config_update()
             run_time = datetime.timedelta(
                     minutes=aerostatd.config_update_freq) + now # reset
 
