@@ -57,7 +57,7 @@ class Configurer(object):
         """
         base_path = '/'.join(path.split('/')[:-1])
         if not os.path.exists(base_path):
-            mkdir_cmd = ['mkdir', '-p', '-m', '761', base_path]
+            mkdir_cmd = ['mkdir', '-p', '-m', '755', base_path]
             mkdir_ret = subprocess.call(mkdir_cmd)
             if mkdir_ret == 0:
                 logging.info('Mkdir (%s) successful' % path)
