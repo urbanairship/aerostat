@@ -6,5 +6,4 @@ bin/
 build/
 include/
 lib/
-ua_setup.py
-
+.noseids

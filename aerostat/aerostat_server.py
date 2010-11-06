@@ -31,10 +31,9 @@ class Aerostatd(object):
             self.aws_conn = self.aws_connect()
 
         self.mongo_conn = aerostat.db_connect('localhost', 27017)
-        self.aerostat_db= self.mongo_conn.aerostat
+        self.aerostat_db = self.mongo_conn.aerostat
         self.config_db = self.mongo_conn.configs
-        self.repo_path = '/root/.aerostat/'
-        self.config_repo_path = self.repo_path + 'configs/'
+        self.config_repo_path = '/root/.aerostat/configs/'
         self.git_cert = '/root/.aerostat/dev-id'
         self.remote_repo_url = 'git@dev:configs' # This is using as ssh alias
         self.config_update_freq = 10
@@ -68,7 +67,6 @@ class Aerostatd(object):
             if 'git_cert' in conf:
                 self.git_cert = conf['git_cert']
             if 'repo_path' in conf:
-                self.repo_path = conf['repo_path']
                 self.config_repo_path = conf['repo_path'] + '/configs'
             if 'config_update_freq' in conf:
                 self.config_update_feq = conf['config_update_freq']
@@ -140,7 +138,6 @@ class Aerostatd(object):
         Returns:
             git.Repo object
         """
-        repo = None
         if not os.path.exists(self.config_repo_path):
             repo = git.Repo.clone_from(self.remote_repo_url,
                     self.config_repo_path)
@@ -186,20 +183,20 @@ class Aerostatd(object):
     def save_mongo_configs(self, col_name, file_name, file_contents, meta_data):
         """Save pre-parsed git repo data into mongo."""
 
-        col = getattr(self.config_db, col_name, None)
+        col = self.config_db[col_name]
         doc = col.find_one({'name': file_name})
-        id = None
-        if doc: # Our config already exists, just update its data.
-            id = col.update(
+        if doc:
+            # Our config already exists, just update its data.
+            col.update(
                     {'name': file_name}, {
                         '$set':{'contents': file_contents,
                                 'path': meta_data['path'],
                                 'owner': meta_data['owner'],
                                 'group': meta_data['group'],
                                 'mode': meta_data['mode']}})
-
-        else: # This is a new config. Save it.
-            id = col.save({
+        else:
+             # This is a new config. Save it.
+             col.insert({
                 'name': file_name,
                 'contents': file_contents,
                 'path': meta_data['path'],
@@ -207,36 +204,32 @@ class Aerostatd(object):
                 'group': meta_data['group'],
                 'mode': meta_data['mode']})
 
-        return id
-
     def parse_config_data(self, config):
-        """Actually extact file contents and upload to mongodb.
+        """Actually extract file contents and upload to mongodb.
 
         Args:
             config: str, path to config inside repo.
+        Returns:
+            collection name, file name, file_contents, and metadata
         """
-        if (len(config.split('/')) < 2):
-            # This is a malformed configuration, just pass.
-            col_name = file_name = file_contents = meta_data = None
-        else:
+        col_name = file_name = file_contents = meta_data = None
+        # Sanity check
+        if (len(config.split('/')) >= 2):
             col_name, file_name = config.split('/')
-            if file_name.split('.')[-1] == 'meta':
+            if file_name.endswith('.meta'):
                 # We don't enter .meta files directly into mongo.
                 col_name = file_name = file_contents = meta_data = None
             else:
                 meta_data = self.get_config_meta_data(config)
-                file_contents = ''
-                file = open(self.config_repo_path + config)
-                file_contents = file.read()
-                file.close()
+                print 'code', os.path.join(self.config_repo_path, config)
+                f = open(os.path.join(self.config_repo_path, config))
+                file_contents = f.read()
+                f.close()
 
         return (col_name, file_name, file_contents, meta_data)
 
     def do_config_update(self):
         """Do the configuration update."""
-        if self.offline:
-            return False
-
         repo = self.update_or_clone_repo()
         repo_configs = repo.git.ls_files().split('\n')
 

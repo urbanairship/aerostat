@@ -11,6 +11,7 @@ import sys
 import unittest
 
 import mox
+import pymongo
 import yaml
 
 from aerostat import aerostat_server
@@ -167,7 +168,7 @@ class AerostatServerTest(mox.MoxTestBase):
         self.mox.ReplayAll()
 
         fake_aerostatd = aerostat_server.Aerostatd(offline=True)
-        fake_aerostatd.repo_path = fake_repo_path
+        fake_aerostatd.config_repo_path = fake_repo_path
         fake_aerostatd.remote_repo_url = fake_repo_url
 
         test_repo1 = fake_aerostatd.update_or_clone_repo()
@@ -192,12 +193,12 @@ class AerostatServerTest(mox.MoxTestBase):
 
         self.mox.ReplayAll()
 
-        fake_aerostatd = aerostat_server.Aerostatd(offline=True)
-        fake_aerostatd.repo_path = fake_repo_path
-        fake_aerostatd.remote_repo_url = fake_repo_url
+        aerostatd = aerostat_server.Aerostatd(offline=True)
+        aerostatd.config_repo_path = fake_repo_path
+        aerostatd.remote_repo_url = fake_repo_url
 
 
-        test_repo1 = fake_aerostatd.update_or_clone_repo()
+        test_repo1 = aerostatd.update_or_clone_repo()
         self.assertNotEqual(test_repo1, None)
 
     def test_get_config_meta_data(self):
@@ -267,7 +268,6 @@ class AerostatServerTest(mox.MoxTestBase):
 
     def test_save_mongo_configs(self):
         """Test save_mongo_configs function."""
-
         fake_mongo_data = {
                 'name': 'config.conf',
                 'path': '/path/to/config.conf',
@@ -280,26 +280,27 @@ class AerostatServerTest(mox.MoxTestBase):
                 'owner': 'somebody',
                 'group': 'somepeople',
                 'mode': '0664'}
-        fake_db = self.mox.CreateMockAnything()
-        fake_col = self.mox.CreateMockAnything()
+
+        aerostatd = aerostat_server.Aerostatd(offline=True)
+        self.mox.StubOutWithMock(aerostatd.config_db, '__getattr__')
+        fake_col = self.mox.CreateMock(pymongo.collection.Collection)
+        aerostatd.config_db.__getattr__('test').AndReturn(fake_col)
         fake_col.find_one({'name': fake_config_name}).AndReturn(
                 fake_mongo_data)
+
+
         # Just update with the same information.
         fake_col.update({'name': fake_config_name}, {
-            '$set':{'contents': '',
+            '$set':{'contents': 'fake contents',
                     'path': '/path/to/config.conf',
                     'owner': 'somebody',
                     'group': 'somepeople',
-                    'mode': '0664'}}).AndReturn(12)
-        fake_db.test = fake_col
-
-        fake_aerostatd = aerostat_server.Aerostatd(offline=True)
-        fake_aerostatd.conf_db = fake_db
+                    'mode': '0664'}})
 
         self.mox.ReplayAll()
 
-        self.assertEqual(12, fake_aerostatd.save_mongo_configs(
-            'test', fake_config_name, '', fake_meta_data))
+        aerostatd.save_mongo_configs(
+            'test', fake_config_name, 'fake contents', fake_meta_data)
 
     def test_parse_config_data(self):
         """Test parse_config_data function."""
@@ -319,8 +320,8 @@ class AerostatServerTest(mox.MoxTestBase):
         fake_file = StringIO.StringIO(fake_file_contents)
 
         self.mox.StubOutWithMock(sys.modules['__builtin__'], 'open')
-        sys.modules['__builtin__'].open(fake_repo + fake_config).AndReturn(
-                fake_file)
+        sys.modules['__builtin__'].open(os.path.join(fake_repo, fake_config)) \
+                .AndReturn(fake_file)
 
         expected_output = (
                 'test', 'config.conf', fake_file_contents, fake_meta_data)
@@ -364,8 +365,9 @@ class AerostatServerTest(mox.MoxTestBase):
                 fake_file_name, '', fake_meta_data).AndReturn(12)
 
         self.mox.ReplayAll()
-
-        self.assertTrue(fake_aerostatd.do_config_update())
+        result = fake_aerostatd.do_config_update()
+        self.mox.VerifyAll()
+        self.assertTrue(result)
 
 
 if __name__ == '__main__':

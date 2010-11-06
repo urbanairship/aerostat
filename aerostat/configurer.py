@@ -17,10 +17,21 @@ from jinja2 import Template
 class Configurer(object):
     """Get and write config files."""
 
+    def __init__(self):
+        self._hostname = None
+        self._service_name = None
+
+    def get_hostname(self):
+        """get hostname"""
+        if self._hostname is None:
+            self._hostname = socket.gethostname()
+        return self._hostname
+
     def get_service_name(self):
         """get service name."""
-
-        return socket.gethostname().split('-')[0]
+        if self._service_name is None:
+            self._service_name = self.get_hostname().split('-')[0]
+        return self._service_name
 
     def get_configs(self, db, service=None, configs=None):
         """Get all configs for this node, or optionally just ones specified.
@@ -96,31 +107,35 @@ class Configurer(object):
         Returns:
             list, containing tuples of return codes for each file's perm ops.
         """
+        print config_data
         return_codes = []
         for config in config_data:
-            _size, temp_file = tempfile.mkstemp(text=True)
-            if 'contents' in config.keys(): # Possibly an empty config
-                # If we have Jinja templ values to insert into the config
-                if 'keywords' in config.keys():
-                    logging.debug('replacing keywords in config template')
-                    config['contents'] = self.customize_template(
-                            config['contents'], config['keywords'])
-                temp = open(temp_file, 'w')
-                temp.write(config['contents'])
-                temp.close()
-
             if not self._create_dir_path(config['path']):
                 logging.error(
                     'Could not create directory tree for %s' % config['path'])
                 continue
 
-            try:
-                shutil.move(temp_file, config['path'])
-            except shutil.Error, e:
-                logging.warn(
-                        'Invalid Path Specified: %s. Traceback:\n %s' % (
-                            config['path'], e))
-                continue
+            if 'contents' in config.keys(): # Possibly an empty config
+                temp_fd, temp_file = tempfile.mkstemp(text=True)
+                print temp_fd, temp_file
+
+                # If we have Jinja templ values to insert into the config
+                if 'keywords' in config.keys():
+                    logging.debug('replacing keywords in config template')
+                    config['contents'] = self.render_template(
+                            config['contents'], config['keywords'])
+
+                temp = open(temp_file, 'w')
+                temp.write(config['contents'])
+                temp.close()
+
+                try:
+                    shutil.move(temp_file, config['path'])
+                except shutil.Error, e:
+                    logging.warn(
+                            'Invalid Path Specified: %s. Traceback:\n %s' % (
+                                config['path'], e))
+                    continue
 
             file_ret_codes = self._update_conf_perms(
                     config['name'], config['path'], config['owner'],
@@ -130,7 +145,7 @@ class Configurer(object):
 
         return return_codes
 
-    def customize_templates(config_contents, template_data):
+    def render_template(self, config_contents, template_data):
         """Setup Customizations for configs that need it.
 
         Args:
@@ -139,6 +154,8 @@ class Configurer(object):
         Returns:
             str, customized config_contents, ready to be written to file.
         """
+        config_contents['service_name'] = self.get_service_name()
+        config_contents['hostname'] = self.get_hostname()
         template = Template(config_contents)
 
         return template.render(template_data)

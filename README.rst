@@ -334,6 +334,18 @@ You can clone the repository by doing the following:
 
     $ git clone git://github.com/urbanairship/aerostat.git
 
+
+Running tests
+-------------
+
+Tests work with either nosetests or py.test as long as the package is
+installed:
+
+    $ python setup.py develop
+    $ nosetests # or...
+    $ py.test
+
+
 .. _getting-help:
 
 Getting Help

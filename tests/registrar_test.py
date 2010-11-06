@@ -389,7 +389,7 @@ class RegistrarTest(mox.MoxTestBase):
 
 
     def test_reset_conflict_aliases(self):
-        """"test resetting conflict aliases on mongodb."""
+        """test resetting conflict aliases on mongodb."""
 
         fake_conflicts = ['test']
         fake_row = {
