@@ -2,11 +2,14 @@
 
 from setuptools import setup
 from setuptools import find_packages
-from aerostat import __version__ as version
+
+# To set __version__
+__version__ = 'unknown'
+execfile('aerostat/_version.py')
 
 setup(
     name='aerostat',
-    version=version,
+    version=__version__,
     author='Gavin McQuillan',
     author_email='gavin@urbanairship.com',
     url='http://github.com/urbanairship/aerostat',

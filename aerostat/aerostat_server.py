@@ -16,11 +16,18 @@ import logging
 import time
 
 import aerostat
+from _version import __version__
 import git
 import yaml
 
 from boto.ec2.connection import EC2Connection
 from optparse import OptionParser
+
+
+logging.basicConfig(
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        level=logging.INFO
+    )
 
 
 class Aerostatd(object):
@@ -245,6 +252,7 @@ class Aerostatd(object):
 
 def main():
     """Main."""
+    logging.info('Starting aerostatd %s' % __version__)
 
     usage = 'usage: %prog [options] arg1 arg2'
     parser = OptionParser(usage=usage)
