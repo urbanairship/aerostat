@@ -27,11 +27,6 @@ The central Aerostat server is a thin wrapper around MongoDB. The serve code is
 responsible for making sure that EC2 and Aerostat's database agree on which instances
 are alive. Having a running MongoDB server is a prerequisite for using Aerostat.
 
-Optionally, Aerostat can also store information about configuration files for your
-services. It can be configured to sync with a shared git repository, and distribute
-configuration files based on metadata files stored in the repo for each config.
-
-
 .. contents::
     :local:
 
@@ -47,7 +42,6 @@ This is a high level overview of the architecture.
 * **Aerostat_Server** deals with making sure that the Aerostat's MongoDB reflects the outside world (machine state in the cloud provider, or configuration information from developers).
 * **Aerostat Registrar** deals with getting a new node a name assignment. It also handles master name changes.
 * **Aerostat Updater** deals with updating /etc/hosts on the node.
-* **Aerostat Configurer** deals with getting, placing, and modifying configuration files such that they match your system's expectations. 
 
 
 .. _Aerostat-features:
@@ -155,8 +149,6 @@ The basic help:
                             updates.
       --offline             Whether or not we should connect to AWS for
                             information.
-      --update-configs      Update configuration files?
-      --configs=CONFIGS     specific configs to update (space sep in quotes)
 
 Good options for a test run on your workstation might look like this:
 
@@ -190,50 +182,8 @@ Documentation
 Server Side
 -----------
 
-In ``aerostat.aerosat_server.py`` there are a group of GLOBAL variables which define the paths to Aerostat-server's local copy of the git repo, the certificate it uses for authentication, and the remote git url to pull from, as well as the update frequency. (Making this a configuration file is on my TODO list).
+In ``aerostat.aerosat_server.py`` configuration information is read from a yaml file and if appropraite values are found sets instance variables. For the most part, all the aerostat_server module does is remove a node from aerostat's mongodb collection when it's not in a running state according to AWS.
 
-All of the configs are to be edited locally on a developer's computer and pushed to origin (whatever your git repo server might be) by default. Something like this would work:
-
-Make sure that your ssh pub key is in ``/var/lib/git/.ssh/authorized_keys`` on dev.example.com (assuming you're using a remote origin) before trying this:
-
-|    $ git clone ssh://git@dev.example.com:configs .
-|    $ vim configs/<some_service>/<some_file>
-|    $ git commmit -a
-|    $ git push origin master
-
-Changes to this repo are picked up every 15 minutes by the Aerostat server in each cluster. That doesn't necessarily mean that the change goes out to the individual Aerostat clients, though. Each client has to opt-in to receive changes. That makes it easy for you to do a canary test.
-
-The git repo saved locally on the Aerostat server is located along this path: /root/.aerostat/configs
-
-Likewise, if you're installing a new Aerostat_server instance, you'll need the git private key in order to communicate with dev and clone the repo (as well as get updates). It's located in ``/root/.aerostat/dev-id``.
-
-Configuration Metadata
-~~~~~~~~~~~~~~~~~~~~~~~
-
-All of the data that is supplied in the configs repo is stored in Aerostat's MongoDB (in the configs database). In order to store information about where and how a service configuration should be stored, you need to include a .meta file for that configuration.
-
-e.g.:
-
-|    repo_home/configs/service/service.config
-|    repo_home/configs/serice/service.config.meta
-
-The contents of the .meta file are just YAML. The structure is as follows:
-
-|    name: <name of file> # In the example above service.config
-|    path: /path/to/config/config.suffix # Need the full path, including the filename here.
-|    owner: username
-|    group: groupname
-|    mode: '0755' # Vital that you use quotes here.
-
-Of course, there are sane defaults. If there is no .meta file for a given configuration file, or if any of the statements are omitted, defaults are filled in. This only applies to configuration files, as Aerostat_server only looks for metadata for files that don't have a .meta extension. So, a bare config.conf.meta file won't actually have any affect on an Aerostat client.
-
-These are the default values for a bare config in the configs repo:
-
-|    name: <config_file_name>
-|    path: /etc/<config_file_name>
-|    owner: root
-|    group: root
-|    mode: '0644'
 
 Client Side
 -----------
@@ -273,26 +223,6 @@ This is probably the simplest portion of Aerostat. Basically, it just queries th
 It gets complicated when services require a legacy updating system. In that case, the ``-–legacy-updater`` option allows you to specify a binary that it expects to write out to a file called ``/etc/hosts.legacy``. Then Aerostat will concatenate all of that legacy data, plus the Aerostat data into ``/etc/hosts.tmp``. If that works out, then it overwrites ``/etc/hosts`` like normal.
 
 Since DNS queries that hit ``/etc/hosts`` will take whichever value they find first, putting the legacy data at the top of the file makes sure that there are no breaking conflicts from the legacy naming system.
-
-Configurer
-~~~~~~~~~~
-
-The newest feature to be added to Aerostat is the ability to store service configurations. Most of this process is covered in the Server Operations Section.
-
-To update config files on the client side, there are really only two things you need to know about:
-
-* the ``-–update-configs`` option
-    * this updates all of the configuration files that Aerostat knows about for that service
-    * it's not called automatically; it's expected that this will either be called manually, or by some sort of deployment infrastructure.
-* the ``–-configs`` option
-    * this allows you to specify a space delimited list of config names that you wish you update specifically (and no others)
-
-Example:
-
-    node# aerostat --update-configs --configs "supervisord.conf rsyslogd.conf"
-
-This would update supervisord.conf and rsyslog.conf (if the configs exist in the database) on the node, but any other configuration files would remain unchanged, even if they did exist for that service and were in the database.
-
 
 .. _Aerostat-installation:
 
@@ -347,21 +277,6 @@ installed:
 
 
 .. _getting-help:
-
-Getting Help
-============
-
-.. _irc-channel:
-
-IRC
----
-
-Come chat with us on IRC. The `#aerostat`_ channel is located at the `Freenode`_
-network.
-
-.. _`#aerostat`: irc://irc.freenode.net/aerostat
-.. _`Freenode`: http://freenode.net
-
 
 Bug tracker
 ===========
