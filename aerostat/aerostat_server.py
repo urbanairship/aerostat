@@ -17,7 +17,6 @@ import time
 
 import aerostat
 from _version import __version__
-import git
 import yaml
 
 from boto.ec2.connection import EC2Connection
@@ -36,9 +35,9 @@ class Aerostatd(object):
         self.offline = offline
         if not self.offline:
             self.aws_conn = self.aws_connect()
+            self.mongo_conn = aerostat.db_connect('localhost', 27017)
+            self.aerostat_db = self.mongo_conn.aerostat
 
-        self.mongo_conn = aerostat.db_connect('localhost', 27017)
-        self.aerostat_db = self.mongo_conn.aerostat
         self.read_aerostatd_conf()
 
     def read_aerostatd_conf(self):

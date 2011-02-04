@@ -16,7 +16,6 @@ import urllib2
 
 from optparse import OptionParser
 
-import configurer
 import registrar
 import updater
 
