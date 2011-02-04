@@ -39,11 +39,6 @@ class Aerostatd(object):
 
         self.mongo_conn = aerostat.db_connect('localhost', 27017)
         self.aerostat_db = self.mongo_conn.aerostat
-        self.config_db = self.mongo_conn.configs
-        self.config_repo_path = '/root/.aerostat/configs/'
-        self.git_cert = '/root/.aerostat/dev-id'
-        self.remote_repo_url = 'git@dev:configs' # This is using as ssh alias
-        self.config_update_freq = 10
         self.read_aerostatd_conf()
 
     def read_aerostatd_conf(self):
@@ -68,15 +63,7 @@ class Aerostatd(object):
             print('Error attempting to read config: %s' % e)
             return False
 
-        if conf:
-            if 'remote_repo_url' in conf:
-                self.remote_repo_url = conf['remote_repo_url']
-            if 'git_cert' in conf:
-                self.git_cert = conf['git_cert']
-            if 'repo_path' in conf:
-                self.config_repo_path = conf['repo_path'] + '/configs'
-            if 'config_update_freq' in conf:
-                self.config_update_feq = conf['config_update_freq']
+        #TODO(gavin): read out mongo connection, port information.
 
         return True
 
@@ -139,117 +126,6 @@ class Aerostatd(object):
                     {'instance_id': diff_id}, {
                         '$set':{'instance_id': '', 'ip': ''}})
 
-    def update_or_clone_repo(self):
-        """Either update or clone new clone repo.
-
-        Returns:
-            git.Repo object
-        """
-        if not os.path.exists(self.config_repo_path):
-            repo = git.Repo.clone_from(self.remote_repo_url,
-                    self.config_repo_path)
-        else:
-            repo = git.Repo(self.config_repo_path)
-            repo.git.reset('--hard')
-            repo.git.pull()
-
-        return repo
-
-    def get_config_meta_data(self, sub_repo_path):
-        """Get the meta data information for a config file.
-
-        Args:
-            sub_repo_path: str, this is the relative path within the repo to
-                a configuration file we're interested in.
-        Returns:
-            a dict storing the desired file meata data. We set a default
-            if there isn't a .meta file for the config or if sections are blank.
-        """
-        meta_file_pattern = sub_repo_path + '.meta'
-        meta_data = {}
-        conf_name = sub_repo_path.split('/')[-1]
-        if os.path.exists(self.config_repo_path + sub_repo_path):
-            if os.path.exists(self.config_repo_path + meta_file_pattern):
-                meta_file = open(self.config_repo_path + meta_file_pattern)
-                data = yaml.load(meta_file.read())
-                if data: # In case the .meta file exists, but is empty
-                    meta_data = data
-                meta_file.close()
-
-            if 'path' not in meta_data:
-                meta_data['path'] = '/etc/%s' % (conf_name,)
-            if 'owner' not in meta_data:
-                meta_data['owner'] = 'root'
-            if 'group' not in meta_data:
-                meta_data['group'] = 'root'
-            if 'mode' not in  meta_data:
-                meta_data['mode'] = '0644'
-
-        return meta_data
-
-    def save_mongo_configs(self, col_name, file_name, file_contents, meta_data):
-        """Save pre-parsed git repo data into mongo."""
-
-        col = self.config_db[col_name]
-        doc = col.find_one({'name': file_name})
-        if doc:
-            # Our config already exists, just update its data.
-            col.update(
-                    {'name': file_name}, {
-                        '$set':{'contents': file_contents,
-                                'path': meta_data['path'],
-                                'owner': meta_data['owner'],
-                                'group': meta_data['group'],
-                                'mode': meta_data['mode']}})
-        else:
-             # This is a new config. Save it.
-             col.insert({
-                'name': file_name,
-                'contents': file_contents,
-                'path': meta_data['path'],
-                'owner': meta_data['owner'],
-                'group': meta_data['group'],
-                'mode': meta_data['mode']})
-
-    def parse_config_data(self, config):
-        """Actually extract file contents and upload to mongodb.
-
-        Args:
-            config: str, path to config inside repo.
-        Returns:
-            collection name, file name, file_contents, and metadata
-        """
-        col_name = file_name = file_contents = meta_data = None
-        # Sanity check
-        if (len(config.split('/')) >= 2):
-            col_name, file_name = config.split('/')
-            if file_name.endswith('.meta'):
-                # We don't enter .meta files directly into mongo.
-                col_name = file_name = file_contents = meta_data = None
-            else:
-                meta_data = self.get_config_meta_data(config)
-                print 'code', os.path.join(self.config_repo_path, config)
-                f = open(os.path.join(self.config_repo_path, config))
-                file_contents = f.read()
-                f.close()
-
-        return (col_name, file_name, file_contents, meta_data)
-
-    def do_config_update(self):
-        """Do the configuration update."""
-        repo = self.update_or_clone_repo()
-        repo_configs = repo.git.ls_files().split('\n')
-
-        for config in repo_configs:
-            (col_name, file_name, file_contents,
-                    meta_data) = self.parse_config_data(config)
-            if col_name and file_name and meta_data:
-                self.save_mongo_configs(col_name, file_name,
-                        file_contents, meta_data)
-
-        return True
-
-
 def main():
     """Main."""
     logging.info('Starting aerostatd %s' % __version__)
@@ -266,15 +142,6 @@ def main():
     run_time = None
     aerostatd = Aerostatd(options.offline)
     while 1:
-        now = datetime.datetime.now()
-        if not run_time:
-            aerostatd.do_config_update()
-            run_time = datetime.timedelta(minutes=15) + now
-        if now > run_time:
-            aerostatd.do_config_update()
-            run_time = datetime.timedelta(
-                    minutes=aerostatd.config_update_freq) + now # reset
-
         mongo_ids = aerostatd.get_mongo_instance_ids()
         if not options.offline:
             aws_ids = aerostatd.get_aws_instance_ids()
