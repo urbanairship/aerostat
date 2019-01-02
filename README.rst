@@ -1,6 +1,9 @@
 ==========================================
- Aerostat - Automated Naming for the Cloud
+[DEPRECATED] Aerostat - Automated Naming for the Cloud [DEPRECATED]
 ==========================================
+
+**This is officially DEPRECATED and should be treated as ABANDONED.**
+We will try to keep the code base around in an archived state for historical reasons, but no guarantees are made to its longevity.
 
 :Version: 1.0.11
 :Web: http://github.com/urbanairship/aerostat
